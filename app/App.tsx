@@ -1,40 +1,49 @@
-// App.tsx
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Button } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Button, Dimensions } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
-import math from 'mathjs';
+
+const evaluateFunction = (func: string, x: number): number => {
+  // Replace 'x' in the function string with the actual value of x
+  func = func.replace(/x/g, x.toString());
+
+  func += ` + ${(Dimensions.get('window').height) / 2}`
+
+  try {
+    // Evaluate the function using JavaScript's built-in eval function
+    // Note: Using eval here for simplicity; in production, consider alternatives
+    const result = eval(func);
+    if (typeof result === 'number' && !isNaN(result)) {
+      return result;
+    } else {
+      throw new Error('Invalid function result');
+    }
+  } catch (error) {
+    console.error('Error evaluating function:', error);
+    throw error;
+  }
+};
 
 const App: React.FC = () => {
-  const [functions, setFunctions] = useState<string[]>([]);
+  const [functionText, setFunctionText] = useState<string>(''); // State for the function text input
   const [graphPoints, setGraphPoints] = useState<{ x: number, y: number }[]>([]);
 
-  const handleAddFunction = () => {
-    setFunctions([...functions, '']);
-  };
+  const screenWidth = Dimensions.get('window').width;
 
-  const handleFunctionChange = (text: string, index: number) => {
-    const updatedFunctions = [...functions];
-    updatedFunctions[index] = text;
-    setFunctions(updatedFunctions);
-  };
-
-  const evaluateFunctions = () => {
+  const handleGraphFunction = () => {
     const evaluatedPoints = [];
-    if (functions.length > 0) {
-      for (let x = -10; x <= 10; x += 0.1) {
-        try {
-          const y = math.evaluate(functions[0], { x }); // Evaluate only the first function for now
-          evaluatedPoints.push({ x, y });
-        } catch (error) {
-          console.error('Error evaluating function:', error);
-        }
+    const step = screenWidth / 100; // Adjust the step size based on screen width
+    for (let pixelX = 0; pixelX <= screenWidth; pixelX += step) {
+      const x = (pixelX / screenWidth) * 20 - 10; // Map pixelX to x-value in range -10 to 10
+      try {
+        functionText
+        const y = evaluateFunction(functionText, x);
+        evaluatedPoints.push({ x, y });
+      } catch (error) {
+        console.error('Error evaluating function:', error);
       }
-      setGraphPoints(evaluatedPoints);
-    } else {
-      console.warn('No functions to evaluate.');
     }
+    setGraphPoints(evaluatedPoints);
   };
-  
 
   return (
     <View style={styles.container}>
@@ -43,11 +52,15 @@ const App: React.FC = () => {
 
       {/* Graph Area */}
       <View style={styles.graphContainer}>
-        <Svg height="400" width="100%">
+        <Svg height="400" width={screenWidth}>
           {/* Render your graph using Path components */}
           {graphPoints.length > 1 && (
             <Path
-              d={`M ${graphPoints.map(point => `${point.x},${point.y}`).join(' L ')}`}
+              d={`M ${graphPoints.map(point => {
+                const pixelX = (point.x + 10) / 20 * screenWidth; // Map x-value back to pixel coordinates
+                const pixelY = (1 - (point.y / 10)) * 400; // Map y-value to pixel coordinates
+                return `${pixelX},${pixelY}`;
+              }).join(' L ')}`}
               stroke="blue"
               strokeWidth="2"
               fill="none"
@@ -58,17 +71,13 @@ const App: React.FC = () => {
 
       {/* Input Section */}
       <View style={styles.inputContainer}>
-        {functions.map((func, index) => (
-          <TextInput
-            key={index}
-            style={styles.input}
-            placeholder={`Function ${index + 1}`}
-            value={func}
-            onChangeText={(text) => handleFunctionChange(text, index)}
-          />
-        ))}
-        <Button title="Add Function" onPress={handleAddFunction} />
-        <Button title="Graph Functions" onPress={evaluateFunctions} />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter a function (e.g., sin(x))"
+          value={functionText}
+          onChangeText={(text) => setFunctionText(text)}
+        />
+        <Button title="Graph Function" onPress={handleGraphFunction} />
       </View>
     </View>
   );
@@ -96,7 +105,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   inputContainer: {
-    flexDirection: 'column',
     alignItems: 'center',
   },
   input: {
